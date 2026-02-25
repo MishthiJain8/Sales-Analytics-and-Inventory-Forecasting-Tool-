@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply text-slate-900 antialiased;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+}
+
+@layer components {
+    .glass {
+        @apply bg-white/70 backdrop-blur-xl border border-white/40;
+    }
+
+    .card-premium {
+        @apply bg-white rounded-[2rem] border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5;
+    }
+}
+
+@keyframes bounce-subtle {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.animate-bounce-subtle {
+    animation: bounce-subtle 3s infinite ease-in-out;
+}

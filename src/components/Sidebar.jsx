@@ -1,83 +1,85 @@
-import { Link, useLocation } from 'react-router-dom';
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard,
     Upload,
     BarChart3,
     TrendingUp,
-    Package,
     LogOut,
-    ChevronLeft,
     ChevronRight
 } from 'lucide-react';
-import { useData } from '../context/DataContext';
-import { useState } from 'react';
-import { cn } from '../lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 
 const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Data Center', path: '/upload', icon: Upload },
-    { name: 'Sales Analysis', path: '/analysis', icon: BarChart3 },
-    { name: 'Forecast Engine', path: '/forecast', icon: TrendingUp },
-    { name: 'Inventory', path: '/inventory', icon: Package },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Upload Data', href: '/upload', icon: Upload },
+    { name: 'Product Analysis', href: '/analysis', icon: BarChart3 },
+    { name: 'Forecasting', href: '/forecast', icon: TrendingUp },
 ];
 
-const Sidebar = () => {
-    const location = useLocation();
-    const { logout } = useData();
-    const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar() {
+    const pathname = usePathname();
+    const { user, logout } = useAuth();
 
     return (
-        <aside className={cn(
-            "bg-white border-r border-slate-200 h-screen sticky top-0 transition-all duration-300 z-50 flex flex-col",
-            collapsed ? "w-20" : "w-64"
-        )}>
-            <div className="p-6 flex items-center justify-between border-b border-slate-50">
-                {!collapsed && (
-                    <span className="text-xl font-black bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent">
-                        SalesFlow
-                    </span>
-                )}
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 ml-auto"
-                >
-                    {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-                </button>
+        <aside className="w-64 bg-darkgreen text-beige flex flex-col h-screen sticky top-0 border-r border-darkgreen-400">
+            <div className="p-8">
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-softgreen p-2 rounded-xl">
+                        <BarChart3 className="text-darkgreen" size={24} />
+                    </div>
+                    <h1 className="text-xl font-black tracking-tight leading-tight">
+                        ANALYTICS<br />
+                        <span className="text-softgreen">ENGINE</span>
+                    </h1>
+                </div>
+
+                <nav className="space-y-2">
+                    {navItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={cn(
+                                    "flex items-center justify-between p-3 rounded-xl transition-all duration-200 group",
+                                    isActive
+                                        ? "bg-softgreen text-darkgreen font-bold shadow-lg shadow-black/20"
+                                        : "hover:bg-darkgreen-600/50 text-softgreen/70 hover:text-softgreen"
+                                )}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <item.icon size={20} />
+                                    <span className="text-sm">{item.name}</span>
+                                </div>
+                                {isActive && <ChevronRight size={16} />}
+                            </Link>
+                        );
+                    })}
+                </nav>
             </div>
 
-            <nav className="flex-1 px-3 py-6 space-y-1">
-                {navItems.map((item) => (
-                    <Link
-                        key={item.path}
-                        to={item.path}
-                        className={cn(
-                            "flex items-center gap-3 px-3 py-3 rounded-xl transition-all group font-medium",
-                            location.pathname === item.path
-                                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100"
-                                : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
-                        )}
-                    >
-                        <item.icon size={20} className={cn(
-                            location.pathname === item.path ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
-                        )} />
-                        {!collapsed && <span>{item.name}</span>}
-                    </Link>
-                ))}
-            </nav>
+            <div className="mt-auto p-6 border-t border-darkgreen-400/30">
+                <div className="bg-darkgreen-600/30 rounded-2xl p-4 mb-4">
+                    <p className="text-[10px] uppercase tracking-widest text-softgreen/50 font-bold mb-1">
+                        Logged in as
+                    </p>
+                    <p className="text-sm font-medium truncate text-beige">
+                        {user?.email || 'User'}
+                    </p>
+                </div>
 
-            <div className="p-4 border-t border-slate-100">
                 <button
                     onClick={logout}
-                    className={cn(
-                        "flex items-center gap-3 w-full px-3 py-3 text-slate-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all font-medium group"
-                    )}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 transition-colors group"
                 >
-                    <LogOut size={20} className="text-slate-400 group-hover:text-rose-600" />
-                    {!collapsed && <span>Sign Out</span>}
+                    <LogOut size={20} />
+                    <span className="text-sm font-bold">Logout</span>
                 </button>
             </div>
         </aside>
     );
-};
-
-export default Sidebar;
+}

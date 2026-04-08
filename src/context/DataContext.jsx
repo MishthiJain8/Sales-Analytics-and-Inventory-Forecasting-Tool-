@@ -1,137 +1,93 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+'use client';
 
-const DataContext = createContext();
+import { createContext, useContext, useState, useCallback } from 'react';
+import { useAuth } from './AuthContext';
 
-export const useData = () => useContext(DataContext);
+const DataContext = createContext(null);
 
-export const DataProvider = ({ children }) => {
-    const [salesData, setSalesData] = useState(() => {
-        const saved = localStorage.getItem('sales_history');
-        if (saved) return JSON.parse(saved);
-        return [
-            { date: 'Mar 2025', revenue: 4200, quantity: 120 },
-            { date: 'Apr 2025', revenue: 3800, quantity: 110 },
-            { date: 'May 2025', revenue: 5100, quantity: 150 },
-            { date: 'Jun 2025', revenue: 4800, quantity: 140 },
-            { date: 'Jul 2025', revenue: 6200, quantity: 180 },
-            { date: 'Aug 2025', revenue: 5900, quantity: 170 },
-            { date: 'Sep 2025', revenue: 7100, quantity: 210 },
-            { date: 'Oct 2025', revenue: 6800, quantity: 200 },
-            { date: 'Nov 2025', revenue: 8200, quantity: 240 },
-            { date: 'Dec 2025', revenue: 9500, quantity: 280 },
-            { date: 'Jan 2026', revenue: 7800, quantity: 230 },
-            { date: 'Feb 2026', revenue: 8400, quantity: 250 },
-        ];
-    });
+export function useData() {
+    const ctx = useContext(DataContext);
+    if (!ctx) throw new Error('useData must be used inside a DataProvider');
+    return ctx;
+}
 
-    const [inventory, setInventory] = useState(() => {
-        const saved = localStorage.getItem('inventory_list');
-        if (saved) return JSON.parse(saved);
-        return [
-            { id: 1, name: 'Espresso Roast', sku: 'COF-001', stock: 45, category: 'Coffee' },
-            { id: 2, name: 'Colombian Blend', sku: 'COF-002', stock: 12, category: 'Coffee' },
-            { id: 3, name: 'French Press', sku: 'EQP-001', stock: 8, category: 'Equipment' },
-            { id: 4, name: 'Paper Filters', sku: 'ACC-001', stock: 85, category: 'Accessories' },
-            { id: 5, name: 'Ceramic Mug', sku: 'ACC-002', stock: 5, category: 'Accessories' },
-        ];
-    });
+export function DataProvider({ children }) {
+    // List of distinct product names from DB
+    const [products, setProducts] = useState([]);
+    // Cache: { [productName]: [records] }
+    const [productDataMap, setProductDataMap] = useState({});
+    const [uploading, setUploading] = useState(false);
+    const [uploadResult, setUploadResult] = useState(null);
 
-    // Auth State
-    const [users, setUsers] = useState(() => {
-        const saved = localStorage.getItem('app_users');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const { token } = useAuth();
 
-    const [currentUser, setCurrentUser] = useState(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return localStorage.getItem('isAuthenticated') === 'true';
-    });
-
-    const [activeOTP, setActiveOTP] = useState(null);
-
-    useEffect(() => {
-        localStorage.setItem('sales_history', JSON.stringify(salesData));
-    }, [salesData]);
-
-    useEffect(() => {
-        localStorage.setItem('inventory_list', JSON.stringify(inventory));
-    }, [inventory]);
-
-    useEffect(() => {
-        localStorage.setItem('app_users', JSON.stringify(users));
-    }, [users]);
-
-    useEffect(() => {
-        localStorage.setItem('isAuthenticated', isAuthenticated);
-    }, [isAuthenticated]);
-
-    const registerUser = (profile) => {
-        setUsers(prev => [...prev, profile]);
-    };
-
-    const sendOTP = (email) => {
-        const userExists = users.find(u => u.workEmail === email);
-        if (!userExists) return false;
-
-        const otp = Math.floor(1000 + Math.random() * 9000).toString();
-        setActiveOTP({ email, code: otp });
-        console.log(`[AUTH] OTP for ${email}: ${otp}`); // SIMULATED OTP DELIVERY
-        return true;
-    };
-
-    const verifyOTP = (email, code) => {
-        if (activeOTP && activeOTP.email === email && activeOTP.code === code) {
-            const user = users.find(u => u.workEmail === email);
-            setCurrentUser(user);
-            setIsAuthenticated(true);
-            setActiveOTP(null);
-            return true;
+    // Fetch all unique product names from DB
+    const fetchProducts = useCallback(async () => {
+        try {
+            const res = await fetch('/api/products');
+            const data = await res.json();
+            if (res.ok) {
+                setProducts(data.products || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch product list:', err);
         }
-        return false;
-    };
+    }, []);
 
-    const logout = () => {
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-        localStorage.removeItem('isAuthenticated');
-    };
+    // Fetch historical data for a specific product
+    const fetchProductData = useCallback(async (productName) => {
+        if (productDataMap[productName]) return productDataMap[productName];
+        try {
+            const res = await fetch(`/api/products/${encodeURIComponent(productName)}`);
+            const data = await res.json();
+            if (res.ok) {
+                setProductDataMap((prev) => ({ ...prev, [productName]: data.records }));
+                return data.records;
+            }
+        } catch (err) {
+            console.error(`Failed to fetch data for ${productName}:`, err);
+        }
+        return [];
+    }, [productDataMap]);
 
-    // Sales & Inventory Actions
-    const addSalesRecord = (record) => setSalesData(prev => [...prev, record]);
-    const updateStock = (id, delta) => {
-        setInventory(prev => prev.map(item =>
-            item.id === id ? { ...item, stock: Math.max(0, item.stock + delta) } : item
-        ));
-    };
-    const addInventoryItem = (item) => setInventory(prev => [...prev, { ...item, id: Date.now() }]);
-    const deleteInventoryItem = (id) => setInventory(prev => prev.filter(item => item.id !== id));
-    const injectMockSales = () => {
-        const newRecords = Array.from({ length: 5 }).map((_, i) => ({
-            date: `New Data ${i + 1}`,
-            revenue: Math.floor(Math.random() * 5000),
-            quantity: Math.floor(Math.random() * 100)
-        }));
-        setSalesData(prev => [...prev, ...newRecords]);
-    };
+    // Upload parsed CSV records to DB
+    const uploadCSV = useCallback(async (records) => {
+        setUploading(true);
+        setUploadResult(null);
+        try {
+            const res = await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ records }),
+            });
+            const data = await res.json();
+            setUploadResult({ ok: res.ok, ...data });
+            if (res.ok) {
+                // Refresh product list and clear cache
+                setProductDataMap({});
+                await fetchProducts();
+            }
+            return { ok: res.ok, ...data };
+        } catch (err) {
+            const errResult = { ok: false, error: 'Network error during upload.' };
+            setUploadResult(errResult);
+            return errResult;
+        } finally {
+            setUploading(false);
+        }
+    }, [fetchProducts]);
 
     return (
         <DataContext.Provider value={{
-            salesData,
-            inventory,
-            isAuthenticated,
-            users,
-            currentUser,
-            registerUser,
-            sendOTP,
-            verifyOTP,
-            logout,
-            addSalesRecord,
-            updateStock,
-            addInventoryItem,
-            deleteInventoryItem,
-            injectMockSales
+            products,
+            productDataMap,
+            uploading,
+            uploadResult,
+            fetchProducts,
+            fetchProductData,
+            uploadCSV,
         }}>
             {children}
         </DataContext.Provider>
     );
-};
+}
